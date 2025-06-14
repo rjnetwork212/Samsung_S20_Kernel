@@ -1,4 +1,4 @@
-name: Build Samsung S20+ Kernel
+name: Build Samsung S20+ Kernel with Clang
 
 on:
   push:
@@ -17,27 +17,30 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential curl flex git libncurses-dev libssl-dev libelf-dev
+          sudo apt-get install -y bc bison build-essential curl flex git libncurses-dev libssl-dev libelf-dev python3 python3-pip unzip
 
-      - name: Download GCC Toolchain
+      - name: Download Android NDK (Clang)
         run: |
-          wget https://releases.linaro.org/components/toolchain/binaries/7.5-2019.12/aarch64-linux-gnu/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu.tar.xz
-          tar -xf gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu.tar.xz
-          echo "TOOLCHAIN=$(pwd)/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-" >> $GITHUB_ENV
+          wget https://dl.google.com/android/repository/android-ndk-r23b-linux.zip
+          unzip -qq android-ndk-r23b-linux.zip
+          echo "NDK=$(pwd)/android-ndk-r23b" >> $GITHUB_ENV
 
       - name: Build Kernel
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
-          export CROSS_COMPILE=$TOOLCHAIN
+          export NDK=$NDK
+          export PATH=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          export CC=aarch64-linux-android30-clang
+          export CROSS_COMPILE=aarch64-linux-android-
           make mrproper
           make exynos990-x1s_defconfig
-          make -j$(nproc)
+          make -j$(nproc) CC=$CC CROSS_COMPILE=$CROSS_COMPILE
 
       - name: Upload Kernel Image
         uses: actions/upload-artifact@v4
         with:
           name: kernel-image
           path: |
-            arch/arm64/boot/Image.gz*
+            arch/arm64/boot/Image*
             arch/arm64/boot/dts/*.dtb
